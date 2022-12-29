@@ -3,5 +3,6 @@
 [workspace]
 members = [
     "model",
+    "migration",
     "app",
 ]
