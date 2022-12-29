@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2022, Ryan Pavlik <ryan@ryanpavlik.com>
+# SPDX-License-Identifier: CC0-1.0
+[workspace]
+members = [
+    "model",
+    "app",
+]
