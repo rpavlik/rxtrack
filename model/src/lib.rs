@@ -45,6 +45,8 @@ impl RefillPolicy {
     }
 }
 
+mod entities;
+
 #[cfg(test)]
 mod tests {
     use super::*;
