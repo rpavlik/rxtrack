@@ -11,3 +11,4 @@ version = "0.1.0"
 # diesel = { version = "2.0.0", features = ["postgres"] }
 # dotenvy = "0.15"
 sea-orm = {version = "0.10", features = ["sqlx-sqlite", "runtime-async-std-native-tls", "macros"]}
+thiserror = "1.0"

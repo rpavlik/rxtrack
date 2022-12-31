@@ -6,25 +6,24 @@ use sea_orm::{
     QuerySelect,
 };
 
-pub mod entities;
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+pub enum Error {
+    #[error("Prescription name cannot be empty")]
+    EmptyRxName,
 
-// /// Person ID
-// #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-// pub struct PersonId(u32);
+    #[error("Database error: {0}")]
+    DbError(#[from] DbErr),
+}
+
+pub mod entities;
 
 /// Prescription ID
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RxId(u32);
+pub struct RxId(pub(crate) i32);
 
 /// Fill Request ID
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FillRequestId(u32);
-
-// #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
-// enum QueryRxInfoAs {
-//     RxId,
-//     RxName,
-// }
+pub struct FillRequestId(pub(crate) i32);
 
 pub async fn get_prescriptions(
     db: &impl ConnectionTrait,
@@ -41,6 +40,8 @@ pub async fn get_prescriptions(
 //         .all(db)
 //         .await
 // }
+
+pub mod operations;
 
 #[cfg(test)]
 mod tests {

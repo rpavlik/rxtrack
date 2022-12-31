@@ -1,6 +1,5 @@
 use sea_orm_migration::prelude::*;
 
-// use crate::m20220101_000001_create_person_table::Person;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -9,8 +8,8 @@ pub struct Migration;
 pub enum RxInfo {
     Table,
     RxId,
-    // PersonId,
     RxName,
+    Hidden,
 }
 
 #[derive(Iden)]
@@ -21,6 +20,7 @@ pub enum FillRequest {
     DateRequested,
     DateFilled,
     DatePickedUp,
+    Closed,
 }
 
 #[async_trait::async_trait]
@@ -47,6 +47,7 @@ impl MigrationTrait for Migration {
                     //         .to(Person::Table, Person::PersonId),
                     // )
                     .col(ColumnDef::new(RxInfo::RxName).string().not_null())
+                    .col(ColumnDef::new(RxInfo::Hidden).boolean().not_null().default(false))
                     .to_owned(),
             )
             .await?;
@@ -73,6 +74,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(FillRequest::DateRequested).date())
                     .col(ColumnDef::new(FillRequest::DateFilled).date())
                     .col(ColumnDef::new(FillRequest::DatePickedUp).date())
+                    .col(ColumnDef::new(FillRequest::Closed).boolean().not_null().default(false))
                     .to_owned(),
             )
             .await
