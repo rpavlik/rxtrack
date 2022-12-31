@@ -7,7 +7,7 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub rx_id: i32,
-    pub person_id: i32,
+    // pub person_id: i32,
     pub rx_name: String,
 }
 
@@ -15,14 +15,14 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::fill_request::Entity")]
     FillRequest,
-    #[sea_orm(
-        belongs_to = "super::person::Entity",
-        from = "Column::PersonId",
-        to = "super::person::Column::PersonId",
-        on_update = "NoAction",
-        on_delete = "NoAction"
-    )]
-    Person,
+    // #[sea_orm(
+    //     belongs_to = "super::person::Entity",
+    //     from = "Column::PersonId",
+    //     to = "super::person::Column::PersonId",
+    //     on_update = "NoAction",
+    //     on_delete = "NoAction"
+    // )]
+    // Person,
 }
 
 impl Related<super::fill_request::Entity> for Entity {
@@ -31,10 +31,10 @@ impl Related<super::fill_request::Entity> for Entity {
     }
 }
 
-impl Related<super::person::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Person.def()
-    }
-}
+// impl Related<super::person::Entity> for Entity {
+//     fn to() -> RelationDef {
+//         Relation::Person.def()
+//     }
+// }
 
 impl ActiveModelBehavior for ActiveModel {}

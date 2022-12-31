@@ -3,5 +3,4 @@
 pub mod prelude;
 
 pub mod fill_request;
-pub mod person;
 pub mod rx_info;

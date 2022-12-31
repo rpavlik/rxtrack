@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use crate::m20220101_000001_create_person_table::Person;
+// use crate::m20220101_000001_create_person_table::Person;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -9,7 +9,7 @@ pub struct Migration;
 pub enum RxInfo {
     Table,
     RxId,
-    PersonId,
+    // PersonId,
     RxName,
 }
 
@@ -38,13 +38,14 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(RxInfo::PersonId).integer().not_null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-rx-person_id")
-                            .from(RxInfo::Table, RxInfo::PersonId)
-                            .to(Person::Table, Person::PersonId),
-                    )
+                    // TODO restore person table eventually
+                    // .col(ColumnDef::new(RxInfo::PersonId).integer().not_null())
+                    // .foreign_key(
+                    //     ForeignKey::create()
+                    //         .name("fk-rx-person_id")
+                    //         .from(RxInfo::Table, RxInfo::PersonId)
+                    //         .to(Person::Table, Person::PersonId),
+                    // )
                     .col(ColumnDef::new(RxInfo::RxName).string().not_null())
                     .to_owned(),
             )
@@ -69,7 +70,7 @@ impl MigrationTrait for Migration {
                             .from(FillRequest::Table, FillRequest::Id)
                             .to(RxInfo::Table, RxInfo::RxId),
                     )
-                    .col(ColumnDef::new(FillRequest::DateRequested).date().not_null())
+                    .col(ColumnDef::new(FillRequest::DateRequested).date())
                     .col(ColumnDef::new(FillRequest::DateFilled).date())
                     .col(ColumnDef::new(FillRequest::DatePickedUp).date())
                     .to_owned(),
