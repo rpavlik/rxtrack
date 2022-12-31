@@ -8,7 +8,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub rx_id: i32,
-    pub date_requested: TimeDate,
+    pub date_requested: Option<TimeDate>,
     pub date_filled: Option<TimeDate>,
     pub date_picked_up: Option<TimeDate>,
 }
@@ -32,4 +32,3 @@ impl Related<super::rx_info::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
-
