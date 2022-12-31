@@ -14,6 +14,7 @@ pub struct Model {
     pub date_requested: Option<TimeDate>,
     pub date_filled: Option<TimeDate>,
     pub date_picked_up: Option<TimeDate>,
+    pub closed: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

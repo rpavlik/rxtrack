@@ -11,6 +11,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub rx_id: i32,
     pub rx_name: String,
+    pub hidden: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
