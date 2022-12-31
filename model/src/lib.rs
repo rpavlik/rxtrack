@@ -1,51 +1,42 @@
 // Copyright 2022, Ryan Pavlik <ryan@ryanpavlik.com>
 // SPDX-License-Identifier: GPL3+
 
+use sea_orm::{
+    ColumnTrait, ConnectionTrait, DbErr, DeriveColumn, EntityTrait, EnumIter, QueryFilter,
+    QuerySelect,
+};
+
+pub mod entities;
+
 /// Person ID
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PersonId(usize);
-
-/// Person info
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PersonInfo {
-    person_id: PersonId,
-    person_name: String,
-}
+pub struct PersonId(u32);
 
 /// Prescription ID
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RxId(usize);
+pub struct RxId(u32);
 
-pub struct RxInfo {
-    rx_id: RxId,
-    person_id: PersonId,
-    rx_name: String,
+// #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
+// enum QueryRxInfoAs {
+//     RxId,
+//     RxName,
+// }
+
+pub async fn get_prescriptions(
+    db: &impl ConnectionTrait,
+) -> Result<Vec<entities::rx_info::Model>, DbErr> {
+    entities::rx_info::Entity::find().all(db).await
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub enum RefillPolicyTiming {
-    /// May fill a given number of days after the most recent fill
-    SincePreviousFill(usize),
-    /// May pick up a given number of days after the most recent pickup
-    SincePreviousPickup(usize),
+pub async fn get_prescriptions_for_person(
+    person: PersonId,
+    db: &impl ConnectionTrait,
+) -> Result<Vec<entities::rx_info::Model>, DbErr> {
+    entities::rx_info::Entity::find()
+        .filter(entities::rx_info::Column::PersonId.eq(person.0))
+        .all(db)
+        .await
 }
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct RefillPolicy {
-    timing: RefillPolicyTiming,
-    needs_new_rx_each_time: bool,
-}
-
-impl RefillPolicy {
-    pub fn new(timing: RefillPolicyTiming, needs_new_rx_each_time: bool) -> Self {
-        Self {
-            timing,
-            needs_new_rx_each_time,
-        }
-    }
-}
-
-mod entities;
 
 #[cfg(test)]
 mod tests {

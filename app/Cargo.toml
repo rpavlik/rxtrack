@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 futures = "0.3.21"
 sea-orm = {version = "0.10", features = ["sqlx-sqlite", "runtime-async-std-native-tls", "macros"]}
+clap = "4.0"
