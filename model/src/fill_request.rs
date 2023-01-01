@@ -3,7 +3,7 @@
 
 use sea_orm::{
     prelude::TimeDate, sea_query::OnConflict, ActiveModelTrait, ActiveValue::Set, ColumnTrait,
-    ConnectionTrait, EntityTrait, Order, QueryFilter, QueryOrder, TryIntoModel,
+    ConnectionTrait, EntityTrait, Order, QueryFilter, QueryOrder, Select, TryIntoModel,
 };
 
 use crate::{
@@ -29,7 +29,15 @@ async fn find_existing_open_fill_request(
         .await?;
     Ok(request)
 }
-
+async fn select_open_fill_request(
+    db: &impl ConnectionTrait,
+    rx: RxId,
+) -> Select<fill_request::Entity> {
+    let request = fill_request::Entity::find()
+        .filter(fill_request::Column::Closed.eq(false))
+        .filter(fill_request::Column::RxId.eq(rx.0));
+    request
+}
 /// Create a new fill request for an rx, closing any previous open one (if any).
 /// Returns the fill request ID.
 pub async fn record_fill_request(
@@ -39,6 +47,7 @@ pub async fn record_fill_request(
 ) -> Result<FillRequestId, Error> {
     // Close any existing request for this prescription
     let existing_request = find_existing_open_fill_request(db, rx).await?;
+
     if let Some(request) = existing_request {
         let mut request: fill_request::ActiveModel = request.into();
         request.closed = Set(true);
@@ -90,14 +99,17 @@ mod test {
 
     use migration::{Migrator, MigratorTrait};
     use sea_orm::{
-        entity::prelude::*, entity::*, ConnectionTrait, Database, DatabaseBackend, MockDatabase,
-        Schema,
+        entity::prelude::*, ConnectionTrait, Database, DatabaseBackend, MockDatabase, Schema,
+        Transaction, Value::Bool, Value::*, Values,
     };
+    use time::{Date, Month};
 
     use crate::{
         entities::{fill_request, rx_info},
-        Error,
+        Error, FillRequestId, RxId,
     };
+
+    use super::record_fill_request;
 
     async fn setup_schema(db: &impl ConnectionTrait) -> Result<(), Error> {
         let schema = Schema::new(DatabaseBackend::Sqlite);
@@ -118,84 +130,46 @@ mod test {
     }
 
     #[async_std::test]
-    async fn test_add_rx() -> Result<(), Error> {
+    async fn test_record_request() -> Result<(), Error> {
+        // let make_empty_results = || {
+        //     let empty_results: Vec<Vec<rx_info::Model>> = vec![vec![]];
+        //     empty_results
+        // };
+        let date = Date::from_calendar_date(2023, Month::January, 1).unwrap();
         let db = MockDatabase::new(DatabaseBackend::Postgres)
             .append_query_results(vec![
-                // First query result
-                vec![rx_info::Model {
-                    rx_id: 1,
-                    rx_name: "amoxicillin".to_owned(),
-                    hidden: false,
+                vec![],
+                vec![fill_request::Model {
+                    id: 1,
+                    rx_id: 5,
+                    date_requested: Some(date.clone()),
+                    date_filled: None,
+                    date_picked_up: None,
+                    closed: false,
                 }],
             ])
             .into_connection();
+        let result = record_fill_request(&db, RxId(5), date.clone()).await?;
+        assert_eq!(result, FillRequestId(1));
 
-        // // Find a cake from MockDatabase
-        // // Return the first query result
-        // assert_eq!(
-        //     rx_info::Entity::find().one(&db).await?,
-        //     Some(cake::Model {
-        //         id: 1,
-        //         name: "New York Cheese".to_owned(),
-        //     })
-        // );
+        let log = db.into_transaction_log();
+        // println!("{:?}", log);
 
-        // // Find all cakes from MockDatabase
-        // // Return the second query result
-        // assert_eq!(
-        //     cake::Entity::find().all(&db).await?,
-        //     vec![
-        //         cake::Model {
-        //             id: 1,
-        //             name: "New York Cheese".to_owned(),
-        //         },
-        //         cake::Model {
-        //             id: 2,
-        //             name: "Chocolate Forest".to_owned(),
-        //         },
-        //     ]
-        // );
-
-        // // Find all cakes with its related fruits
-        // assert_eq!(
-        //     cake::Entity::find()
-        //         .find_also_related(fruit::Entity)
-        //         .all(&db)
-        //         .await?,
-        //     vec![(
-        //         cake::Model {
-        //             id: 1,
-        //             name: "Apple Cake".to_owned(),
-        //         },
-        //         Some(fruit::Model {
-        //             id: 2,
-        //             name: "Apple".to_owned(),
-        //             cake_id: Some(1),
-        //         })
-        //     )]
-        // );
-
-        // // Checking transaction log
-        // assert_eq!(
-        //     db.into_transaction_log(),
-        //     vec![
-        //         Transaction::from_sql_and_values(
-        //             DatabaseBackend::Postgres,
-        //             r#"SELECT "cake"."id", "cake"."name" FROM "cake" LIMIT $1"#,
-        //             vec![1u64.into()]
-        //         ),
-        //         Transaction::from_sql_and_values(
-        //             DatabaseBackend::Postgres,
-        //             r#"SELECT "cake"."id", "cake"."name" FROM "cake""#,
-        //             vec![]
-        //         ),
-        //         Transaction::from_sql_and_values(
-        //             DatabaseBackend::Postgres,
-        //             r#"SELECT "cake"."id" AS "A_id", "cake"."name" AS "A_name", "fruit"."id" AS "B_id", "fruit"."name" AS "B_name", "fruit"."cake_id" AS "B_cake_id" FROM "cake" LEFT JOIN "fruit" ON "cake"."id" = "fruit"."cake_id""#,
-        //             vec![]
-        //         ),
-        //     ]
-        // );
+        assert_eq!(
+            log,
+            vec![
+                Transaction::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    r#"SELECT "fill_request"."id", "fill_request"."rx_id", "fill_request"."date_requested", "fill_request"."date_filled", "fill_request"."date_picked_up", "fill_request"."closed" FROM "fill_request" WHERE "fill_request"."closed" = $1 AND "fill_request"."rx_id" = $2 ORDER BY "fill_request"."date_requested" DESC LIMIT $3"#,
+                    vec![Bool(Some(false)), Int(Some(5)), BigUnsigned(Some(1))]
+                ),
+                Transaction::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    r#"INSERT INTO "fill_request" ("rx_id", "date_requested") VALUES ($1, $2) RETURNING "id""#,
+                    vec![Int(Some(5)), TimeDate(Some(Box::new(date.clone())))]
+                )
+            ]
+        );
 
         Ok(())
     }
