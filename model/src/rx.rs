@@ -75,31 +75,44 @@ mod test {
         assert_eq!(add_rx(&db, "").await, Err(Error::EmptyRxName));
         assert_eq!(add_rx(&db, "  ").await, Err(Error::EmptyRxName));
         assert_eq!(db.into_transaction_log(), vec![]);
-        let make_empty_results = || {
-            let empty_results: Vec<Vec<rx_info::Model>> = vec![vec![]];
-            empty_results
-        };
+        // let make_empty_results = || {
+        //     let empty_results: Vec<Vec<rx_info::Model>> = vec![vec![]];
+        //     empty_results
+        // };
         // Check normal operation
         let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(make_empty_results())
+            // TODO not sure why this is also needed
+            .append_query_results(vec![vec![rx_info::Model {
+                rx_id: 5,
+                rx_name: "fake".to_owned(),
+                hidden: false,
+            }]])
             .append_exec_results(vec![MockExecResult {
                 last_insert_id: 5,
                 rows_affected: 1,
             }])
             .into_connection();
-        assert_eq!(add_rx(&db, "amoxicillin").await, Ok(RxId(5)));
+        let result = add_rx(&db, "amoxicillin").await;
+        assert_eq!(result, Ok(RxId(5)));
+        let log = db.into_transaction_log();
+        // println!("{:?}", log);
         assert_eq!(
-            db.into_transaction_log(),
+            log,
             vec![Transaction::from_sql_and_values(
                 DatabaseBackend::Postgres,
-                r#"INSERT INTO "rx_info" ("rx_name") VALUES ($1) RETURNING "id", "name""#,
+                r#"INSERT INTO "rx_info" ("rx_name") VALUES ($1) RETURNING "rx_id""#,
                 vec!["amoxicillin".into()]
             )]
         );
 
         // check trimming
         let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_query_results(make_empty_results())
+            // TODO not sure why this is also needed
+            .append_query_results(vec![vec![rx_info::Model {
+                rx_id: 5,
+                rx_name: "fake".to_owned(),
+                hidden: false,
+            }]])
             .append_exec_results(vec![MockExecResult {
                 last_insert_id: 5,
                 rows_affected: 1,
@@ -110,7 +123,7 @@ mod test {
             db.into_transaction_log(),
             vec![Transaction::from_sql_and_values(
                 DatabaseBackend::Postgres,
-                r#"INSERT INTO "rx_info" ("rx_name") VALUES ($1) RETURNING "id", "name""#,
+                r#"INSERT INTO "rx_info" ("rx_name") VALUES ($1) RETURNING "rx_id""#,
                 vec!["amoxicillin".into()]
             )]
         );
