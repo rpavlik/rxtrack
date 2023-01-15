@@ -2,19 +2,15 @@
 // SPDX-License-Identifier: GPL3+
 
 use sea_orm::{
-    prelude::TimeDate, sea_query::OnConflict, ActiveModelTrait, ActiveValue::Set, ColumnTrait,
-    ConnectionTrait, EntityTrait, Order, QueryFilter, QueryOrder, TryIntoModel,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter,
 };
 
-use crate::{
-    entities::{fill_request, rx_info},
-    Error, FillRequestId, RxId,
-};
+use crate::{entities::rx_info, Error, RxId};
 
-pub enum RxAddOutcome {
-    AlreadyExists(RxId),
-    Created(RxId),
-}
+// pub enum RxAddOutcome {
+//     AlreadyExists(RxId),
+//     Created(RxId),
+// }
 
 /// Add a new prescription, receiving the ID.
 pub async fn add_rx(db: &impl ConnectionTrait, name: &str) -> Result<RxId, Error> {
@@ -37,15 +33,52 @@ pub async fn add_rx(db: &impl ConnectionTrait, name: &str) -> Result<RxId, Error
     Ok(RxId(res.last_insert_id))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnownRx {
+    pub id: RxId,
+    pub name: String,
+    pub hidden: bool,
+}
+
+impl From<rx_info::Model> for KnownRx {
+    fn from(value: rx_info::Model) -> Self {
+        KnownRx {
+            id: RxId::from(value.rx_id),
+            name: value.rx_name,
+            hidden: value.hidden,
+        }
+    }
+}
+
+pub async fn list_rx(db: &impl ConnectionTrait) -> Result<Vec<KnownRx>, sea_orm::DbErr> {
+    let result = rx_info::Entity::find()
+        .filter(rx_info::Column::Hidden.eq(false))
+        .all(db)
+        .await?;
+    let v: Vec<KnownRx> = result.into_iter().map(KnownRx::from).collect();
+    Ok(v)
+}
+
+pub async fn list_all_rx(db: &impl ConnectionTrait) -> Result<Vec<KnownRx>, sea_orm::DbErr> {
+    let result = rx_info::Entity::find().all(db).await?;
+    let v: Vec<KnownRx> = result.into_iter().map(KnownRx::from).collect();
+    Ok(v)
+}
+
+pub async fn get_rx(
+    db: &impl ConnectionTrait,
+    id: RxId,
+) -> Result<Option<KnownRx>, sea_orm::DbErr> {
+    let rx = rx_info::Entity::find_by_id(i32::from(id)).one(db).await?;
+    Ok(rx.map(KnownRx::from))
+}
+
 #[cfg(test)]
 mod test {
 
-    use async_std::io::empty;
     use migration::{Migrator, MigratorTrait};
-    use sea_orm::{
-        entity::prelude::*, entity::*, ConnectionTrait, Database, DatabaseBackend, MockDatabase,
-        MockExecResult, Schema, Transaction,
-    };
+    use sea_orm::{Database, DatabaseBackend, MockDatabase, MockExecResult, Transaction};
+    use time::{Date, Month};
 
     use super::*;
     use crate::Error;
@@ -67,6 +100,28 @@ mod test {
     //     Migrator::up(&db, None).await?;
     //     Ok(db)
     // }
+    #[async_std::test]
+    async fn test_operation() -> Result<(), Error> {
+        let db = Database::connect("sqlite::memory:").await?;
+        Migrator::up(&db, None).await?;
+        assert!(list_rx(&db).await?.is_empty());
+        let amox_id = add_rx(&db, "amoxicillin").await?;
+
+        let amox_data = get_rx(&db, amox_id).await?;
+        assert!(amox_data.is_some());
+        let amox_data = amox_data.unwrap();
+        assert_eq!(amox_data.name, "amoxicillin");
+        assert_eq!(amox_data.id, amox_id);
+        assert_eq!(amox_data.hidden, false);
+
+        let pred_id = add_rx(&db, "prednisone").await?;
+
+        let rxs = list_rx(&db).await?;
+        assert_eq!(rxs.len(), 2);
+        assert!(rxs.contains(&amox_data));
+        assert!(rxs.iter().find(|e| e.name == "prednisone" && e.id == pred_id).is_some());
+        Ok(())
+    }
 
     #[async_std::test]
     async fn test_add_rx() -> Result<(), Error> {

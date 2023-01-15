@@ -106,7 +106,7 @@ mod test {
 
     use crate::{
         entities::{fill_request, rx_info},
-        Error, FillRequestId, RxId,
+        Error, FillRequestId, RxId, rx::add_rx,
     };
 
     use super::record_fill_request;
@@ -127,6 +127,16 @@ mod test {
         // Create MockDatabase with mock query results
         Migrator::up(&db, None).await?;
         Ok(db)
+    }
+
+    #[async_std::test]
+    async fn test_integration() -> Result<(), Error> {
+        
+        let date = Date::from_calendar_date(2023, Month::January, 1).unwrap();
+        let db = Database::connect("sqlite::memory:").await?;
+        Migrator::up(&db, None).await?;
+        add_rx(&db, "amoxicillin").await?;
+Ok(())
     }
 
     #[async_std::test]
