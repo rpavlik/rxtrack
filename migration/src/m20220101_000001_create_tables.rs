@@ -1,5 +1,7 @@
-use sea_orm_migration::prelude::*;
+// Copyright 2022-2023, Ryan Pavlik <ryan@ryanpavlik.com>
+// SPDX-License-Identifier: GPL3+
 
+use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -47,7 +49,12 @@ impl MigrationTrait for Migration {
                     //         .to(Person::Table, Person::PersonId),
                     // )
                     .col(ColumnDef::new(RxInfo::RxName).string().not_null())
-                    .col(ColumnDef::new(RxInfo::Hidden).boolean().not_null().default(false))
+                    .col(
+                        ColumnDef::new(RxInfo::Hidden)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -74,7 +81,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(FillRequest::DateRequested).date())
                     .col(ColumnDef::new(FillRequest::DateFilled).date())
                     .col(ColumnDef::new(FillRequest::DatePickedUp).date())
-                    .col(ColumnDef::new(FillRequest::Closed).boolean().not_null().default(false))
+                    .col(
+                        ColumnDef::new(FillRequest::Closed)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await

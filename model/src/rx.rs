@@ -1,9 +1,7 @@
 // Copyright 2022, Ryan Pavlik <ryan@ryanpavlik.com>
 // SPDX-License-Identifier: GPL3+
 
-use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter,
-};
+use sea_orm::{ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
 
 use crate::{entities::rx_info, Error, RxId};
 
@@ -78,7 +76,6 @@ mod test {
 
     use migration::{Migrator, MigratorTrait};
     use sea_orm::{Database, DatabaseBackend, MockDatabase, MockExecResult, Transaction};
-    use time::{Date, Month};
 
     use super::*;
     use crate::Error;
@@ -119,7 +116,9 @@ mod test {
         let rxs = list_rx(&db).await?;
         assert_eq!(rxs.len(), 2);
         assert!(rxs.contains(&amox_data));
-        assert!(rxs.iter().find(|e| e.name == "prednisone" && e.id == pred_id).is_some());
+        assert!(rxs
+            .iter()
+            .any(|e| e.name == "prednisone" && e.id == pred_id));
         Ok(())
     }
 

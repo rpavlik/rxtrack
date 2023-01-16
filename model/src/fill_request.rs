@@ -3,13 +3,10 @@
 
 use sea_orm::{
     prelude::TimeDate, ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait,
-    EntityTrait, Order, QueryFilter, QueryOrder, Select, TryIntoModel,
+    EntityTrait, Order, QueryFilter, QueryOrder, TryIntoModel,
 };
 
-use crate::{
-    entities::{fill_request, rx_info},
-    Error, FillRequestId, RxId,
-};
+use crate::{entities::fill_request, Error, FillRequestId, RxId};
 
 pub enum RxAddOutcome {
     AlreadyExists(RxId),
@@ -90,17 +87,10 @@ pub async fn record_pickup(
 mod test {
 
     use migration::{Migrator, MigratorTrait};
-    use sea_orm::{
-        ConnectionTrait, Database, DatabaseBackend, MockDatabase, Schema, Transaction, Value::Bool,
-        Value::*,
-    };
+    use sea_orm::{Database, DatabaseBackend, MockDatabase, Transaction, Value::Bool, Value::*};
     use time::{Date, Month};
 
-    use crate::{
-        entities::{fill_request, rx_info},
-        rx::add_rx,
-        Error, FillRequestId, RxId,
-    };
+    use crate::{entities::fill_request, rx::add_rx, Error, FillRequestId, RxId};
 
     use super::{find_existing_open_fill_request, record_fill_request};
 
@@ -152,14 +142,14 @@ mod test {
                 vec![fill_request::Model {
                     id: 1,
                     rx_id: 5,
-                    date_requested: Some(date.clone()),
+                    date_requested: Some(date),
                     date_filled: None,
                     date_picked_up: None,
                     closed: false,
                 }],
             ])
             .into_connection();
-        let result = record_fill_request(&db, RxId(5), date.clone()).await?;
+        let result = record_fill_request(&db, RxId(5), date).await?;
         assert_eq!(result, FillRequestId(1));
 
         let log = db.into_transaction_log();
@@ -176,7 +166,7 @@ mod test {
                 Transaction::from_sql_and_values(
                     DatabaseBackend::Postgres,
                     r#"INSERT INTO "fill_request" ("rx_id", "date_requested") VALUES ($1, $2) RETURNING "id""#,
-                    vec![Int(Some(5)), TimeDate(Some(Box::new(date.clone())))]
+                    vec![Int(Some(5)), TimeDate(Some(Box::new(date)))]
                 )
             ]
         );
