@@ -1,9 +1,9 @@
-// Copyright 2022, Ryan Pavlik <ryan@ryanpavlik.com>
+// Copyright 2022-2023, Ryan Pavlik <ryan@ryanpavlik.com>
 // SPDX-License-Identifier: GPL3+
 
 use sea_orm::{
-    prelude::TimeDate, sea_query::OnConflict, ActiveModelTrait, ActiveValue::Set, ColumnTrait,
-    ConnectionTrait, EntityTrait, Order, QueryFilter, QueryOrder, Select, TryIntoModel,
+    prelude::TimeDate, ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait,
+    EntityTrait, Order, QueryFilter, QueryOrder, Select, TryIntoModel,
 };
 
 use crate::{
@@ -29,15 +29,7 @@ async fn find_existing_open_fill_request(
         .await?;
     Ok(request)
 }
-async fn select_open_fill_request(
-    db: &impl ConnectionTrait,
-    rx: RxId,
-) -> Select<fill_request::Entity> {
-    let request = fill_request::Entity::find()
-        .filter(fill_request::Column::Closed.eq(false))
-        .filter(fill_request::Column::RxId.eq(rx.0));
-    request
-}
+
 /// Create a new fill request for an rx, closing any previous open one (if any).
 /// Returns the fill request ID.
 pub async fn record_fill_request(
@@ -99,44 +91,52 @@ mod test {
 
     use migration::{Migrator, MigratorTrait};
     use sea_orm::{
-        entity::prelude::*, ConnectionTrait, Database, DatabaseBackend, MockDatabase, Schema,
-        Transaction, Value::Bool, Value::*, Values,
+        ConnectionTrait, Database, DatabaseBackend, MockDatabase, Schema, Transaction, Value::Bool,
+        Value::*,
     };
     use time::{Date, Month};
 
     use crate::{
         entities::{fill_request, rx_info},
-        Error, FillRequestId, RxId, rx::add_rx,
+        rx::add_rx,
+        Error, FillRequestId, RxId,
     };
 
-    use super::record_fill_request;
+    use super::{find_existing_open_fill_request, record_fill_request};
 
-    async fn setup_schema(db: &impl ConnectionTrait) -> Result<(), Error> {
-        let schema = Schema::new(DatabaseBackend::Sqlite);
-        // let stmt = ;
-        let stmt = schema.create_table_from_entity(rx_info::Entity);
-        db.execute(db.get_database_backend().build(&stmt)).await?;
+    // async fn setup_schema(db: &impl ConnectionTrait) -> Result<(), Error> {
+    //     let schema = Schema::new(DatabaseBackend::Sqlite);
+    //     // let stmt = ;
+    //     let stmt = schema.create_table_from_entity(rx_info::Entity);
+    //     db.execute(db.get_database_backend().build(&stmt)).await?;
 
-        let stmt = schema.create_table_from_entity(fill_request::Entity);
-        db.execute(db.get_database_backend().build(&stmt)).await?;
-        Ok(())
-    }
+    //     let stmt = schema.create_table_from_entity(fill_request::Entity);
+    //     db.execute(db.get_database_backend().build(&stmt)).await?;
+    //     Ok(())
+    // }
 
-    async fn make_inmemory_db() -> Result<impl ConnectionTrait, Error> {
-        let db = Database::connect("sqlite::memory:").await?;
-        // Create MockDatabase with mock query results
-        Migrator::up(&db, None).await?;
-        Ok(db)
-    }
+    // async fn make_inmemory_db() -> Result<impl ConnectionTrait, Error> {
+    //     let db = Database::connect("sqlite::memory:").await?;
+    //     // Create MockDatabase with mock query results
+    //     Migrator::up(&db, None).await?;
+    //     Ok(db)
+    // }
 
     #[async_std::test]
     async fn test_integration() -> Result<(), Error> {
-        
         let date = Date::from_calendar_date(2023, Month::January, 1).unwrap();
         let db = Database::connect("sqlite::memory:").await?;
         Migrator::up(&db, None).await?;
-        add_rx(&db, "amoxicillin").await?;
-Ok(())
+        let amox_id = add_rx(&db, "amoxicillin").await?;
+        let existing = find_existing_open_fill_request(&db, amox_id).await?;
+        assert!(existing.is_none());
+
+        let request_id = record_fill_request(&db, amox_id, date).await?;
+
+        let existing = find_existing_open_fill_request(&db, amox_id).await?;
+        assert_eq!(existing.map(FillRequestId::from), Some(request_id));
+
+        Ok(())
     }
 
     #[async_std::test]
