@@ -3,7 +3,40 @@
 
 use sea_orm::{ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
 
-use crate::{entities::rx_info, Error, RxId};
+use crate::{
+    entities::{self, rx_info},
+    Error, RxId,
+};
+
+pub trait GetRxId {
+    fn rx_id(&self) -> RxId;
+}
+
+impl GetRxId for rx_info::Model {
+    fn rx_id(&self) -> RxId {
+        self.rx_id.into()
+    }
+}
+
+impl GetRxId for entities::fill_request::Model {
+    fn rx_id(&self) -> RxId {
+        self.rx_id.into()
+    }
+}
+
+pub trait RxInfo: GetRxId {
+    fn name(&self) -> &str;
+    fn hidden(&self) -> bool;
+}
+impl RxInfo for rx_info::Model {
+    fn name(&self) -> &str {
+        &self.rx_name
+    }
+
+    fn hidden(&self) -> bool {
+        self.hidden
+    }
+}
 
 // pub enum RxAddOutcome {
 //     AlreadyExists(RxId),

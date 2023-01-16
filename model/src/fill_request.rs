@@ -1,16 +1,41 @@
 // Copyright 2022-2023, Ryan Pavlik <ryan@ryanpavlik.com>
 // SPDX-License-Identifier: GPL3+
 
+use crate::{entities::fill_request, Error, FillRequestId, RxId};
 use sea_orm::{
     prelude::TimeDate, ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait,
     EntityTrait, Order, QueryFilter, QueryOrder, TryIntoModel,
 };
+use time::Date;
 
-use crate::{entities::fill_request, Error, FillRequestId, RxId};
+pub trait FillRequest {
+    fn fill_request_id(&self) -> FillRequestId;
+    fn date_requested(&self) -> &Option<Date>;
+    fn date_filled(&self) -> &Option<Date>;
+    fn date_picked_up(&self) -> &Option<Date>;
+    fn closed(&self) -> bool;
+}
 
-pub enum RxAddOutcome {
-    AlreadyExists(RxId),
-    Created(RxId),
+impl FillRequest for fill_request::Model {
+    fn fill_request_id(&self) -> FillRequestId {
+        self.id.into()
+    }
+
+    fn date_requested(&self) -> &Option<Date> {
+        &self.date_requested
+    }
+
+    fn date_filled(&self) -> &Option<Date> {
+        &self.date_filled
+    }
+
+    fn date_picked_up(&self) -> &Option<Date> {
+        &self.date_picked_up
+    }
+
+    fn closed(&self) -> bool {
+        self.closed
+    }
 }
 
 /// Find an existing open fill request for a given rx, if any.
@@ -87,10 +112,15 @@ pub async fn record_pickup(
 mod test {
 
     use migration::{Migrator, MigratorTrait};
-    use sea_orm::{Database, DatabaseBackend, MockDatabase, Transaction, Value::Bool, Value::*};
+    use sea_orm::{
+        ConnectionTrait, Database, DatabaseBackend, MockDatabase, Transaction, Value::Bool,
+        Value::*,
+    };
     use time::{Date, Month};
 
-    use crate::{entities::fill_request, rx::add_rx, Error, FillRequestId, RxId};
+    use crate::{
+        entities::fill_request, fill_request::FillRequest, rx::add_rx, Error, FillRequestId, RxId,
+    };
 
     use super::{find_existing_open_fill_request, record_fill_request};
 
@@ -105,19 +135,33 @@ mod test {
     //     Ok(())
     // }
 
-    // async fn make_inmemory_db() -> Result<impl ConnectionTrait, Error> {
-    //     let db = Database::connect("sqlite::memory:").await?;
-    //     // Create MockDatabase with mock query results
-    //     Migrator::up(&db, None).await?;
-    //     Ok(db)
-    // }
+    struct Fixture<D> {
+        db: D,
+        amox_id: RxId,
+        pred_id: RxId,
+    }
 
-    #[async_std::test]
-    async fn test_integration() -> Result<(), Error> {
-        let date = Date::from_calendar_date(2023, Month::January, 1).unwrap();
+    async fn make_inmemory_db() -> Result<Fixture<impl ConnectionTrait>, Error> {
         let db = Database::connect("sqlite::memory:").await?;
         Migrator::up(&db, None).await?;
         let amox_id = add_rx(&db, "amoxicillin").await?;
+        let pred_id = add_rx(&db, "prednisone").await?;
+        Ok(Fixture {
+            db,
+            amox_id,
+            pred_id,
+        })
+    }
+
+    #[async_std::test]
+    async fn test_record_fill_request() -> Result<(), Error> {
+        let date = Date::from_calendar_date(2023, Month::January, 1).unwrap();
+        let Fixture {
+            db,
+            amox_id,
+            pred_id,
+        } = make_inmemory_db().await?;
+
         let existing = find_existing_open_fill_request(&db, amox_id).await?;
         assert!(existing.is_none());
 
@@ -126,6 +170,39 @@ mod test {
         let existing = find_existing_open_fill_request(&db, amox_id).await?;
         assert_eq!(existing.map(FillRequestId::from), Some(request_id));
 
+        let request_id_2 = record_fill_request(&db, amox_id, date.next_day().unwrap()).await?;
+
+        let existing_2 = find_existing_open_fill_request(&db, amox_id)
+            .await?
+            .unwrap();
+        assert_eq!(existing_2.fill_request_id(), request_id_2);
+        assert_eq!(*existing_2.date_requested(), date.next_day());
+        assert!(existing_2.date_filled().is_none());
+        assert!(existing_2.date_picked_up().is_none());
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn test_record_second_fill_request() -> Result<(), Error> {
+        let date = Date::from_calendar_date(2023, Month::January, 1).unwrap();
+        let Fixture {
+            db,
+            amox_id,
+            pred_id,
+        } = make_inmemory_db().await?;
+
+        let request_id = record_fill_request(&db, amox_id, date).await?;
+
+        let request_id_2 = record_fill_request(&db, amox_id, date.next_day().unwrap()).await?;
+        assert_ne!(request_id, request_id_2);
+
+        let existing_2 = find_existing_open_fill_request(&db, amox_id)
+            .await?
+            .unwrap();
+        assert_eq!(existing_2.fill_request_id(), request_id_2);
+        assert_eq!(*existing_2.date_requested(), date.next_day());
+        assert!(existing_2.date_filled().is_none());
+        assert!(existing_2.date_picked_up().is_none());
         Ok(())
     }
 
