@@ -75,7 +75,7 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-fill-rx_id")
-                            .from(FillRequest::Table, FillRequest::Id)
+                            .from(FillRequest::Table, FillRequest::RxId)
                             .to(RxInfo::Table, RxInfo::RxId),
                     )
                     .col(ColumnDef::new(FillRequest::DateRequested).date())
