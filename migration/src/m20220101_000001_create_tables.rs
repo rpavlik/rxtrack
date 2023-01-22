@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: GPL3+
 
 use sea_orm_migration::prelude::*;
+use sea_orm_migration::{
+    prelude::*,
+    sea_orm::{ActiveEnum, Iterable},
+};
+
+use crate::EventType;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -23,6 +29,24 @@ pub enum FillRequest {
     DateFilled,
     DatePickedUp,
     Closed,
+}
+
+#[derive(Iden)]
+pub enum ReminderPolicy {
+    Table,
+    ReminderId,
+    RxId,
+    /// an enum identifying what event's date we start from
+    StartingDate,
+    /// boolean whether we add the rx duration
+    IncludeRxDuration,
+    /// signed int offset
+    Offset,
+    /// Whether to allow reminder on a saturday or back it up
+    AllowSaturday,
+    /// Whether to allow reminder on a sunday or back it up
+    AllowSunday,
+    Description,
 }
 
 #[async_trait::async_trait]
@@ -89,10 +113,61 @@ impl MigrationTrait for Migration {
                     )
                     .to_owned(),
             )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(ReminderPolicy::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(ReminderPolicy::ReminderId)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(ReminderPolicy::RxId).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-reminder-rx_id")
+                            .from(ReminderPolicy::Table, ReminderPolicy::RxId)
+                            .to(RxInfo::Table, RxInfo::RxId),
+                    )
+                    .col(
+                        ColumnDef::new(ReminderPolicy::StartingDate)
+                            .enumeration(EventType::name(), EventType::iter()),
+                    )
+                    .col(
+                        ColumnDef::new(ReminderPolicy::IncludeRxDuration)
+                            .boolean()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(ReminderPolicy::Offset).integer().not_null())
+                    .col(
+                        ColumnDef::new(ReminderPolicy::AllowSaturday)
+                            .boolean()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReminderPolicy::AllowSunday)
+                            .boolean()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReminderPolicy::Description)
+                            .string()
+                            .not_null(),
+                    )
+                    .to_owned(),
+            )
             .await
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(Table::drop().table(ReminderPolicy::Table).to_owned())
+            .await?;
         manager
             .drop_table(Table::drop().table(FillRequest::Table).to_owned())
             .await?;
