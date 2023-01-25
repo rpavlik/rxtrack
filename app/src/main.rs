@@ -1,4 +1,3 @@
-
 use futures::executor::block_on;
 use sea_orm::{Database, DbErr};
 

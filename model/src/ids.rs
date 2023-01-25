@@ -66,3 +66,15 @@ impl From<entities::fill_request::Model> for FillRequestId {
         value.id.into()
     }
 }
+
+/// Event ID
+#[derive(
+    Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, derive_more::Into, derive_more::From,
+)]
+pub struct EventId(i32);
+
+impl Display for EventId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "EventId({})", self.0)
+    }
+}

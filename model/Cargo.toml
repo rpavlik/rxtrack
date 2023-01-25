@@ -13,6 +13,7 @@ version = "0.1.0"
 sea-orm = {version = "0.10", features = ["sqlx-sqlite", "runtime-async-std-native-tls", "macros"]}
 thiserror = "1.0"
 time = "0.3.17"
+derive_more = "0.99"
 
 [dev-dependencies]
 async-std = "1.12"

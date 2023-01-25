@@ -6,6 +6,7 @@ use sea_orm::DbErr;
 pub mod entities;
 pub mod fill_request;
 mod ids;
+pub mod implicit_fill_request;
 pub mod rx;
 
 pub use ids::{FillRequestId, RxId};
